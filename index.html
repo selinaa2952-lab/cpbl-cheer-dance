@@ -354,26 +354,24 @@
     };
 
     // 載入資料
-    function initData() {
-      const localData = localStorage.getItem(STORAGE_KEY);
-      if (localData) {
-        allSongs = JSON.parse(localData);
-        applyFilterAndRender();
-      } else {
-        fetch('./songs.json')
-          .then(res => res.json())
-          .then(data => {
-            allSongs = data;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            applyFilterAndRender();
-          })
-          .catch(err => {
-            console.warn('載入失敗或無初始檔案:', err);
-            allSongs = [];
-            applyFilterAndRender();
-          });
-      }
-    }
+  // 替換成你的 Google Apps Script 網頁應用程式網址
+const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbz72_rmHSwZwsq3r7Y1EL3jGlptkiQ9s5rWKTva8HOlw_R_NjN-6iCrJskD3msCnOSc/exec";
+
+function initData() {
+  const resultEl = document.getElementById('resultCount');
+  resultEl.innerText = "⏳ 正在從 Google 雲端載入最新應援曲...";
+
+  fetch(GOOGLE_API_URL)
+    .then(res => res.json())
+    .then(data => {
+      allSongs = data;
+      applyFilterAndRender();
+    })
+    .catch(err => {
+      console.error('載入失敗:', err);
+      resultEl.innerText = "❌ 雲端資料庫連線失敗，請稍後再試。";
+    });
+}
 
     // 篩選與搜尋核心運算
     function applyFilterAndRender() {
