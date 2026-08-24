@@ -10,9 +10,11 @@
     .container { max-width: 900px; margin: 0 auto; }
     .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
     h1, h2 { color: #1e293b; margin-top: 0; }
-    .form-group { margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; position: relative; }
     label { display: block; margin-bottom: 6px; font-weight: 600; color: #475569; }
     input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+    .hint-text { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .loading-badge { display: none; font-size: 12px; color: #2563eb; font-weight: 600; margin-left: 8px; }
     .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
     .btn:hover { background: #1d4ed8; }
     .btn-secondary { background: #64748b; margin-left: 8px; }
@@ -36,8 +38,17 @@
   <div class="card">
     <h2 id="formTitle">🎵 新增應援歌曲 / 影片</h2>
     <form id="songForm">
-      <!-- 隱藏欄位：用來記錄目前正在編輯哪一首歌的 ID -->
       <input type="hidden" id="editSongId" value="">
+
+      <!-- 優先填入網址，以觸發自動讀取 -->
+      <div class="form-group">
+        <label for="videoUrl">
+          YouTube 影片網址
+          <span id="fetchLoading" class="loading-badge">⏳ 正在抓取影片標題...</span>
+        </label>
+        <input type="url" id="videoUrl" placeholder="貼上網址即自動解析標題（支援一般網址、短網址與 Shorts）" required>
+        <div class="hint-text">💡 貼上連結後，系統將自動擷取並填入下方歌曲名稱與姓名。</div>
+      </div>
 
       <div class="form-group">
         <label for="title">歌曲 / 應援曲名稱</label>
@@ -59,11 +70,6 @@
       <div class="form-group">
         <label for="player">球員 / 啦啦隊員姓名（選填）</label>
         <input type="text" id="player" placeholder="例如：王威晨 / 峮峮">
-      </div>
-
-      <div class="form-group">
-        <label for="videoUrl">YouTube 影片網址（支援一般網址、短網址與 Shorts）</label>
-        <input type="url" id="videoUrl" placeholder="https://www.youtube.com/watch?v=... 或 https://youtu.be/..." required>
       </div>
 
       <button type="submit" id="submitBtn" class="btn">新增並儲存</button>
@@ -106,7 +112,7 @@
     }
   ];
 
-  // 支援一般網址、短網址、Shorts、Embed
+  // 轉換為嵌入式網址
   function formatYoutubeUrl(url) {
     if (!url) return '';
     const trimmed = url.trim();
@@ -116,6 +122,68 @@
       ? `https://www.youtube.com/embed/${match[2]}`
       : trimmed;
   }
+
+  // 自動擷取 YouTube 標題與分析球員/隊伍
+  async function autoFetchVideoInfo(url) {
+    const trimmed = url.trim();
+    if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
+
+    const loadingBadge = document.getElementById('fetchLoading');
+    loadingBadge.style.display = 'inline';
+
+    try {
+      // 透過 noembed 公開服務取得 JSON
+      const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+
+      if (data && data.title) {
+        const fullTitle = data.title;
+        
+        // 1. 自動填入歌曲名稱
+        const titleInput = document.getElementById('title');
+        if (!titleInput.value) {
+          titleInput.value = fullTitle;
+        }
+
+        // 2. 智慧比對球隊
+        const teamSelect = document.getElementById('team');
+        if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
+        else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
+        else if (fullTitle.includes('桃猿') || fullTitle.includes('樂天') || fullTitle.includes('Rakuten')) teamSelect.value = '樂天桃猿';
+        else if (fullTitle.includes('味全') || fullTitle.includes('龍')) teamSelect.value = '味全龍';
+        else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
+        else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
+
+        // 3. 智慧擷取球員/啦啦隊姓名 (偵測常見標題格式，例如【峮峮】、[王威晨]、陳傑憲應援曲)
+        const playerInput = document.getElementById('player');
+        if (!playerInput.value) {
+          const bracketMatch = fullTitle.match(/[【\[]([^】\]]+)[】\]]/);
+          if (bracketMatch) {
+            playerInput.value = bracketMatch[1].trim();
+          } else {
+            // 常見「OOO 應援曲 / 嗆司曲」格式比對
+            const keywordMatch = fullTitle.match(/([^\s]+)\s*(個人應援曲|應援曲|嗆司曲|加油歌)/);
+            if (keywordMatch) {
+              playerInput.value = keywordMatch[1].replace(/中職|CPBL|202[0-9]|年度/g, '').trim();
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('自動解析 YouTube 標題失敗:', err);
+    } finally {
+      loadingBadge.style.display = 'none';
+    }
+  }
+
+  // 監聽網址欄位的貼上與變更事件
+  const videoInput = document.getElementById('videoUrl');
+  videoInput.addEventListener('paste', () => {
+    setTimeout(() => autoFetchVideoInfo(videoInput.value), 100);
+  });
+  videoInput.addEventListener('change', () => {
+    autoFetchVideoInfo(videoInput.value);
+  });
 
   function getSongs() {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -149,29 +217,24 @@
     `).join('');
   }
 
-  // 點擊「編輯」：將該筆資料填回表單
   function startEdit(id) {
     const songs = getSongs();
     const song = songs.find(s => s.id === id);
     if (!song) return;
 
-    // 填入資料
     document.getElementById('editSongId').value = song.id;
     document.getElementById('title').value = song.title;
     document.getElementById('team').value = song.team;
     document.getElementById('player').value = song.player || '';
     document.getElementById('videoUrl').value = song.videoUrl;
 
-    // 切換介面文字與按鈕
     document.getElementById('formTitle').innerText = '✏️ 編輯應援曲資料';
     document.getElementById('submitBtn').innerText = '儲存修改';
     document.getElementById('cancelEditBtn').style.display = 'inline-block';
 
-    // 滾動至頂部表單區
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // 取消編輯模式
   function cancelEdit() {
     document.getElementById('songForm').reset();
     document.getElementById('editSongId').value = '';
@@ -180,7 +243,6 @@
     document.getElementById('cancelEditBtn').style.display = 'none';
   }
 
-  // 送出表單（判斷是「新增」還是「修改」）
   document.getElementById('songForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -191,7 +253,6 @@
     let songs = getSongs();
 
     if (editId) {
-      // 模式：修改現有資料
       songs = songs.map(song => {
         if (song.id === editId) {
           return {
@@ -206,7 +267,6 @@
       });
       alert('✅ 修改已儲存！');
     } else {
-      // 模式：新增資料
       const newSong = {
         id: Date.now().toString(),
         title: document.getElementById('title').value.trim(),
