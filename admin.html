@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPBL 應援曲管理後台</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    h1, h2 { color: #1e293b; margin-top: 0; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #475569; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
+    .btn:hover { background: #1d4ed8; }
+    .btn-secondary { background: #64748b; margin-left: 8px; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-edit { background: #f59e0b; padding: 6px 12px; font-size: 13px; margin-right: 6px; }
+    .btn-edit:hover { background: #d97706; }
+    .btn-danger { background: #ef4444; padding: 6px 12px; font-size: 13px; }
+    .btn-danger:hover { background: #dc2626; }
+    .nav-link { display: inline-block; margin-bottom: 16px; color: #2563eb; text-decoration: none; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; color: #475569; }
+    .action-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <a href="index.html" class="nav-link">← 返回前台首頁</a>
+  
+  <div class="card">
+    <h2 id="formTitle">🎵 新增應援歌曲 / 影片</h2>
+    <form id="songForm">
+      <!-- 隱藏欄位：用來記錄目前正在編輯哪一首歌的 ID -->
+      <input type="hidden" id="editSongId" value="">
+
+      <div class="form-group">
+        <label for="title">歌曲 / 應援曲名稱</label>
+        <input type="text" id="title" placeholder="例如：嗆司曲 - 登峰造極 / 選手應援曲" required>
+      </div>
+
+      <div class="form-group">
+        <label for="team">所屬球隊</label>
+        <select id="team" required>
+          <option value="中信兄弟">中信兄弟</option>
+          <option value="統一7-ELEVEn獅">統一7-ELEVEn獅</option>
+          <option value="樂天桃猿">樂天桃猿</option>
+          <option value="味全龍">味全龍</option>
+          <option value="富邦悍將">富邦悍將</option>
+          <option value="台鋼雄鷹">台鋼雄鷹</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="player">球員 / 啦啦隊員姓名（選填）</label>
+        <input type="text" id="player" placeholder="例如：王威晨 / 峮峮">
+      </div>
+
+      <div class="form-group">
+        <label for="videoUrl">YouTube 影片網址（支援一般網址、短網址與 Shorts）</label>
+        <input type="url" id="videoUrl" placeholder="https://www.youtube.com/watch?v=... 或 https://youtu.be/..." required>
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn">新增並儲存</button>
+      <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;" onclick="cancelEdit()">取消編輯</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>📋 現有歌曲清單</h2>
+    <div class="action-bar">
+      <button class="btn btn-secondary" onclick="exportJSON()">📥 匯出 songs.json (準備發布 GitHub)</button>
+      <button class="btn btn-secondary" onclick="resetDefault()">🔄 重設為預設清單</button>
+    </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>名稱</th>
+          <th>球隊</th>
+          <th>球員/對象</th>
+          <th>影片連結</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="songTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = 'cpbl_cheer_songs';
+
+  const DEFAULT_SONGS = [
+    {
+      id: "1",
+      title: "兄弟精神",
+      team: "中信兄弟",
+      player: "全隊",
+      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
+    }
+  ];
+
+  // 支援一般網址、短網址、Shorts、Embed
+  function formatYoutubeUrl(url) {
+    if (!url) return '';
+    const trimmed = url.trim();
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = trimmed.match(regExp);
+    return (match && match[2].length === 11)
+      ? `https://www.youtube.com/embed/${match[2]}`
+      : trimmed;
+  }
+
+  function getSongs() {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : DEFAULT_SONGS;
+  }
+
+  function saveSongs(songs) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+    renderTable();
+  }
+
+  function renderTable() {
+    const songs = getSongs();
+    const tbody = document.getElementById('songTableBody');
+    if (songs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">目前沒有任何歌曲資料</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = songs.map(song => `
+      <tr>
+        <td><strong>${song.title}</strong></td>
+        <td>${song.team}</td>
+        <td>${song.player || '-'}</td>
+        <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
+        <td>
+          <button class="btn btn-edit" onclick="startEdit('${song.id}')">編輯</button>
+          <button class="btn btn-danger" onclick="deleteSong('${song.id}')">刪除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  // 點擊「編輯」：將該筆資料填回表單
+  function startEdit(id) {
+    const songs = getSongs();
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+
+    // 填入資料
+    document.getElementById('editSongId').value = song.id;
+    document.getElementById('title').value = song.title;
+    document.getElementById('team').value = song.team;
+    document.getElementById('player').value = song.player || '';
+    document.getElementById('videoUrl').value = song.videoUrl;
+
+    // 切換介面文字與按鈕
+    document.getElementById('formTitle').innerText = '✏️ 編輯應援曲資料';
+    document.getElementById('submitBtn').innerText = '儲存修改';
+    document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+    // 滾動至頂部表單區
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // 取消編輯模式
+  function cancelEdit() {
+    document.getElementById('songForm').reset();
+    document.getElementById('editSongId').value = '';
+    document.getElementById('formTitle').innerText = '🎵 新增應援歌曲 / 影片';
+    document.getElementById('submitBtn').innerText = '新增並儲存';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  // 送出表單（判斷是「新增」還是「修改」）
+  document.getElementById('songForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const editId = document.getElementById('editSongId').value;
+    const rawUrl = document.getElementById('videoUrl').value;
+    const embedUrl = formatYoutubeUrl(rawUrl);
+
+    let songs = getSongs();
+
+    if (editId) {
+      // 模式：修改現有資料
+      songs = songs.map(song => {
+        if (song.id === editId) {
+          return {
+            ...song,
+            title: document.getElementById('title').value.trim(),
+            team: document.getElementById('team').value,
+            player: document.getElementById('player').value.trim(),
+            videoUrl: embedUrl
+          };
+        }
+        return song;
+      });
+      alert('✅ 修改已儲存！');
+    } else {
+      // 模式：新增資料
+      const newSong = {
+        id: Date.now().toString(),
+        title: document.getElementById('title').value.trim(),
+        team: document.getElementById('team').value,
+        player: document.getElementById('player').value.trim(),
+        videoUrl: embedUrl
+      };
+      songs.unshift(newSong);
+      alert('🎉 新增成功！');
+    }
+
+    saveSongs(songs);
+    cancelEdit();
+  });
+
+  function deleteSong(id) {
+    if (confirm('確定要刪除這首歌曲嗎？')) {
+      const songs = getSongs().filter(s => s.id !== id);
+      saveSongs(songs);
+      if (document.getElementById('editSongId').value === id) {
+        cancelEdit();
+      }
+    }
+  }
+
+  function exportJSON() {
+    const songs = getSongs();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(songs, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "songs.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function resetDefault() {
+    if (confirm('確定要重設為預設資料嗎？這將覆蓋現有新增的內容。')) {
+      saveSongs(DEFAULT_SONGS);
+      cancelEdit();
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', renderTable);
+</script>
+
+</body>
+</html>
