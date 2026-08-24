@@ -3,455 +3,315 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CPBL 中職應援曲庫</title>
+  <title>CPBL 應援曲管理後台</title>
   <style>
-    :root {
-      --bg-dark: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text-main: #f8fafc;
-      --text-sub: #94a3b8;
-      --primary: #3b82f6;
-
-      /* 中職六隊代表色 */
-      --color-brothers: #f59e0b;  /* 中信兄弟 - 黃 */
-      --color-lions: #f97316;     /* 統一獅 - 橘 */
-      --color-monkeys: #991b1b;   /* 樂天桃猿 - 桃紅/酒紅 */
-      --color-dragons: #dc2626;   /* 味全龍 - 烈焰紅 */
-      --color-guardians: #0284c7; /* 富邦悍將 - 悍將藍 */
-      --color-hawks: #059669;     /* 台鋼雄鷹 - 綠 */
-    }
-
     * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-main);
-      margin: 0;
-      padding: 0;
-      min-height: 100vh;
-    }
-
-    /* 頂部導航列 */
-    header {
-      background: rgba(30, 41, 59, 0.8);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--card-border);
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .nav-container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 16px 24px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-    }
-
-    .admin-btn {
-      background: #334155;
-      color: var(--text-main);
-      text-decoration: none;
-      padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      transition: all 0.2s ease;
-    }
-
-    .admin-btn:hover {
-      background: var(--primary);
-      transform: translateY(-1px);
-    }
-
-    /* 主視覺與控制區塊 */
-    .hero-section {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 36px 24px 24px 24px;
-    }
-
-    .hero-title {
-  font-size: 32px;
-  font-weight: 800;
-  margin: 0 0 8px 0;
-  background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
-  -webkit-background-clip: text;
-  background-clip: text; /* 補上這一行標準屬性 */
-  -webkit-text-fill-color: transparent;
-}
-
-    .hero-subtitle {
-      color: var(--text-sub);
-      font-size: 15px;
-      margin: 0 0 24px 0;
-    }
-
-    /* 搜尋與篩選工具列 */
-    .controls {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      background: var(--card-bg);
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid var(--card-border);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    }
-
-    .search-bar {
-      position: relative;
-      width: 100%;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 12px 16px 12px 42px;
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      border-radius: 8px;
-      color: var(--text-main);
-      font-size: 15px;
-      outline: none;
-      transition: border-color 0.2s ease;
-    }
-
-    .search-input:focus {
-      border-color: var(--primary);
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-sub);
-    }
-
-    /* 球隊標籤篩選按鈕 */
-    .filter-tabs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .tab-btn {
-      background: #0f172a;
-      color: var(--text-sub);
-      border: 1px solid var(--card-border);
-      padding: 8px 14px;
-      border-radius: 20px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .tab-btn:hover {
-      color: var(--text-main);
-      border-color: #64748b;
-    }
-
-    .tab-btn.active {
-      background: var(--primary);
-      color: #ffffff;
-      border-color: var(--primary);
-    }
-
-    /* 狀態提示列 */
-    .status-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 20px;
-      font-size: 14px;
-      color: var(--text-sub);
-    }
-
-    /* 歌曲展示網格 */
-    .content-container {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 24px 60px 24px;
-    }
-
-    .song-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 24px;
-    }
-
-    /* 歌曲卡片 */
-    .song-card {
-      background: var(--card-bg);
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--card-border);
-      display: flex;
-      flex-direction: column;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-
-    .song-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.5);
-      border-color: #475569;
-    }
-
-    /* 16:9 影片框架 */
-    .video-frame {
-      position: relative;
-      width: 100%;
-      padding-bottom: 56.25%;
-      background: #000;
-    }
-
-    .video-frame iframe {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-
-    .card-info {
-      padding: 18px;
-      flex-grow: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* 球隊專屬 Badge 色彩 */
-    .team-badge {
-      align-self: flex-start;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .team-brothers { background: rgba(245, 158, 11, 0.15); color: var(--color-brothers); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .team-lions { background: rgba(249, 115, 22, 0.15); color: var(--color-lions); border: 1px solid rgba(249, 115, 22, 0.3); }
-    .team-monkeys { background: rgba(153, 27, 27, 0.2); color: #fca5a5; border: 1px solid rgba(153, 27, 27, 0.4); }
-    .team-dragons { background: rgba(220, 38, 38, 0.15); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.3); }
-    .team-guardians { background: rgba(2, 132, 199, 0.15); color: var(--color-guardians); border: 1px solid rgba(2, 132, 199, 0.3); }
-    .team-hawks { background: rgba(5, 150, 105, 0.15); color: var(--color-hawks); border: 1px solid rgba(5, 150, 105, 0.3); }
-    .team-default { background: rgba(148, 163, 184, 0.15); color: var(--text-sub); border: 1px solid var(--card-border); }
-
-    .song-name {
-      font-size: 18px;
-      font-weight: 700;
-      margin: 0 0 6px 0;
-      color: #ffffff;
-      line-height: 1.4;
-    }
-
-    .target-name {
-      font-size: 14px;
-      color: var(--text-sub);
-      margin: 0;
-      margin-top: auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .empty-container {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 80px 20px;
-      background: var(--card-bg);
-      border-radius: 12px;
-      border: 1px dashed var(--card-border);
-    }
-    .empty-container p { color: var(--text-sub); margin: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
+    h1, h2 { color: #1e293b; margin-top: 0; }
+    .form-group { margin-bottom: 16px; position: relative; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; color: #475569; }
+    input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+    .hint-text { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .loading-badge { display: none; font-size: 12px; color: #2563eb; font-weight: 600; margin-left: 8px; }
+    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
+    .btn:hover { background: #1d4ed8; }
+    .btn-secondary { background: #64748b; margin-left: 8px; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-edit { background: #f59e0b; padding: 6px 12px; font-size: 13px; margin-right: 6px; }
+    .btn-edit:hover { background: #d97706; }
+    .btn-danger { background: #ef4444; padding: 6px 12px; font-size: 13px; }
+    .btn-danger:hover { background: #dc2626; }
+    .nav-link { display: inline-block; margin-bottom: 16px; color: #2563eb; text-decoration: none; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    th { background: #f8fafc; color: #475569; }
+    .action-bar { display: flex; gap: 10px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
 
-  <!-- 頂部導航 -->
-  <header>
-    <div class="nav-container">
-      <div class="brand">⚾ CPBL Cheer Hub</div>
-      <a href="admin.html" class="admin-btn">⚙️ 後台管理</a>
-    </div>
-  </header>
+<div class="container">
+  <a href="index.html" class="nav-link">← 返回前台首頁</a>
+  
+  <div class="card">
+    <h2 id="formTitle">🎵 新增應援歌曲 / 影片</h2>
+    <form id="songForm">
+      <input type="hidden" id="editSongId" value="">
 
-  <!-- 標題與搜尋篩選區 -->
-  <section class="hero-section">
-    <h1 class="hero-title">中職應援曲庫</h1>
-    <p class="hero-subtitle">收錄中華職棒六隊最新應援曲、嗆司曲與啦啦隊舞蹈動作</p>
-
-    <div class="controls">
-      <!-- 關鍵字搜尋 -->
-      <div class="search-bar">
-        <span class="search-icon">🔍</span>
-        <input 
-          type="text" 
-          id="searchInput" 
-          class="search-input" 
-          placeholder="搜尋曲名、球員或啦啦隊員姓名..."
-        >
+      <!-- 優先填入網址，以觸發自動讀取 -->
+      <div class="form-group">
+        <label for="videoUrl">
+          YouTube 影片網址
+          <span id="fetchLoading" class="loading-badge">⏳ 正在抓取影片標題...</span>
+        </label>
+        <input type="url" id="videoUrl" placeholder="貼上網址即自動解析標題（支援一般網址、短網址與 Shorts）" required>
+        <div class="hint-text">💡 貼上連結後，系統將自動擷取並填入下方歌曲名稱與姓名。</div>
       </div>
 
-      <!-- 球隊分類按鈕 -->
-      <div class="filter-tabs" id="filterTabs">
-        <button class="tab-btn active" data-team="ALL">全部球隊</button>
-        <button class="tab-btn" data-team="中信兄弟">中信兄弟</button>
-        <button class="tab-btn" data-team="統一7-ELEVEn獅">統一7-ELEVEn獅</button>
-        <button class="tab-btn" data-team="樂天桃猿">樂天桃猿</button>
-        <button class="tab-btn" data-team="味全龍">味全龍</button>
-        <button class="tab-btn" data-team="富邦悍將">富邦悍將</button>
-        <button class="tab-btn" data-team="台鋼雄鷹">台鋼雄鷹</button>
+      <div class="form-group">
+        <label for="title">歌曲 / 應援曲名稱</label>
+        <input type="text" id="title" placeholder="例如：嗆司曲 - 登峰造極 / 選手應援曲" required>
       </div>
+
+      <div class="form-group">
+        <label for="team">所屬球隊</label>
+        <select id="team" required>
+          <option value="中信兄弟">中信兄弟</option>
+          <option value="統一7-ELEVEn獅">統一7-ELEVEn獅</option>
+          <option value="樂天桃猿">樂天桃猿</option>
+          <option value="味全龍">味全龍</option>
+          <option value="富邦悍將">富邦悍將</option>
+          <option value="台鋼雄鷹">台鋼雄鷹</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="player">球員 / 啦啦隊員姓名（選填）</label>
+        <input type="text" id="player" placeholder="例如：王威晨 / 峮峮">
+      </div>
+
+      <button type="submit" id="submitBtn" class="btn">新增並儲存</button>
+      <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;" onclick="cancelEdit()">取消編輯</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>📋 現有歌曲清單</h2>
+    <div class="action-bar">
+      <button class="btn btn-secondary" onclick="exportJSON()">📥 匯出 songs.json (準備發布 GitHub)</button>
+      <button class="btn btn-secondary" onclick="resetDefault()">🔄 重設為預設清單</button>
     </div>
+    
+    <table>
+      <thead>
+        <tr>
+          <th>名稱</th>
+          <th>球隊</th>
+          <th>球員/對象</th>
+          <th>影片連結</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="songTableBody"></tbody>
+    </table>
+  </div>
+</div>
 
-    <!-- 即時統計 -->
-    <div class="status-bar">
-      <span id="resultCount">正在載入歌曲...</span>
-    </div>
-  </section>
+<script>
+  const STORAGE_KEY = 'cpbl_cheer_songs';
 
-  <!-- 卡片展示清單 -->
-  <main class="content-container">
-    <div class="song-grid" id="songGrid"></div>
-  </main>
-
-  <script>
-    const STORAGE_KEY = 'cpbl_cheer_songs';
-    let allSongs = [];
-    let currentFilter = 'ALL';
-    let currentSearch = '';
-
-    // 隊伍 Badge 樣式對照表
-    const teamStyleMap = {
-      '中信兄弟': 'team-brothers',
-      '統一7-ELEVEn獅': 'team-lions',
-      '樂天桃猿': 'team-monkeys',
-      '味全龍': 'team-dragons',
-      '富邦悍將': 'team-guardians',
-      '台鋼雄鷹': 'team-hawks'
-    };
-
-    // 載入資料
-    function initData() {
-      const localData = localStorage.getItem(STORAGE_KEY);
-      if (localData) {
-        allSongs = JSON.parse(localData);
-        applyFilterAndRender();
-      } else {
-        fetch('./songs.json')
-          .then(res => res.json())
-          .then(data => {
-            allSongs = data;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-            applyFilterAndRender();
-          })
-          .catch(err => {
-            console.warn('載入失敗或無初始檔案:', err);
-            allSongs = [];
-            applyFilterAndRender();
-          });
-      }
+  const DEFAULT_SONGS = [
+    {
+      id: "1",
+      title: "兄弟精神",
+      team: "中信兄弟",
+      player: "全隊",
+      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
     }
+  ];
 
-    // 篩選與搜尋核心運算
-    function applyFilterAndRender() {
-      const filtered = allSongs.filter(song => {
-        // 1. 隊伍篩選
-        const matchTeam = (currentFilter === 'ALL') || (song.team === currentFilter);
+  // 轉換為嵌入式網址
+  function formatYoutubeUrl(url) {
+    if (!url) return '';
+    const trimmed = url.trim();
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = trimmed.match(regExp);
+    return (match && match[2].length === 11)
+      ? `https://www.youtube.com/embed/${match[2]}`
+      : trimmed;
+  }
+
+  // 自動擷取 YouTube 標題與分析球員/隊伍
+  async function autoFetchVideoInfo(url) {
+    const trimmed = url.trim();
+    if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
+
+    const loadingBadge = document.getElementById('fetchLoading');
+    loadingBadge.style.display = 'inline';
+
+    try {
+      // 透過 noembed 公開服務取得 JSON
+      const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
+      const data = await res.json();
+
+      if (data && data.title) {
+        const fullTitle = data.title;
         
-        // 2. 關鍵字搜尋（比對曲名與球員）
-        const query = currentSearch.toLowerCase().trim();
-        const matchSearch = !query || 
-          (song.title && song.title.toLowerCase().includes(query)) ||
-          (song.player && song.player.toLowerCase().includes(query));
+        // 1. 自動填入歌曲名稱
+        const titleInput = document.getElementById('title');
+        if (!titleInput.value) {
+          titleInput.value = fullTitle;
+        }
 
-        return matchTeam && matchSearch;
+        // 2. 智慧比對球隊
+        const teamSelect = document.getElementById('team');
+        if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
+        else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
+        else if (fullTitle.includes('桃猿') || fullTitle.includes('樂天') || fullTitle.includes('Rakuten')) teamSelect.value = '樂天桃猿';
+        else if (fullTitle.includes('味全') || fullTitle.includes('龍')) teamSelect.value = '味全龍';
+        else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
+        else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
+
+        // 3. 智慧擷取球員/啦啦隊姓名 (偵測常見標題格式，例如【峮峮】、[王威晨]、陳傑憲應援曲)
+        const playerInput = document.getElementById('player');
+        if (!playerInput.value) {
+          const bracketMatch = fullTitle.match(/[【\[]([^】\]]+)[】\]]/);
+          if (bracketMatch) {
+            playerInput.value = bracketMatch[1].trim();
+          } else {
+            // 常見「OOO 應援曲 / 嗆司曲」格式比對
+            const keywordMatch = fullTitle.match(/([^\s]+)\s*(個人應援曲|應援曲|嗆司曲|加油歌)/);
+            if (keywordMatch) {
+              playerInput.value = keywordMatch[1].replace(/中職|CPBL|202[0-9]|年度/g, '').trim();
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('自動解析 YouTube 標題失敗:', err);
+    } finally {
+      loadingBadge.style.display = 'none';
+    }
+  }
+
+  // 監聽網址欄位的貼上與變更事件
+  const videoInput = document.getElementById('videoUrl');
+  videoInput.addEventListener('paste', () => {
+    setTimeout(() => autoFetchVideoInfo(videoInput.value), 100);
+  });
+  videoInput.addEventListener('change', () => {
+    autoFetchVideoInfo(videoInput.value);
+  });
+
+  function getSongs() {
+    const data = localStorage.getItem(STORAGE_KEY);
+    return data ? JSON.parse(data) : DEFAULT_SONGS;
+  }
+
+  function saveSongs(songs) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
+    renderTable();
+  }
+
+  function renderTable() {
+    const songs = getSongs();
+    const tbody = document.getElementById('songTableBody');
+    if (songs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">目前沒有任何歌曲資料</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = songs.map(song => `
+      <tr>
+        <td><strong>${song.title}</strong></td>
+        <td>${song.team}</td>
+        <td>${song.player || '-'}</td>
+        <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
+        <td>
+          <button class="btn btn-edit" onclick="startEdit('${song.id}')">編輯</button>
+          <button class="btn btn-danger" onclick="deleteSong('${song.id}')">刪除</button>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  function startEdit(id) {
+    const songs = getSongs();
+    const song = songs.find(s => s.id === id);
+    if (!song) return;
+
+    document.getElementById('editSongId').value = song.id;
+    document.getElementById('title').value = song.title;
+    document.getElementById('team').value = song.team;
+    document.getElementById('player').value = song.player || '';
+    document.getElementById('videoUrl').value = song.videoUrl;
+
+    document.getElementById('formTitle').innerText = '✏️ 編輯應援曲資料';
+    document.getElementById('submitBtn').innerText = '儲存修改';
+    document.getElementById('cancelEditBtn').style.display = 'inline-block';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    document.getElementById('songForm').reset();
+    document.getElementById('editSongId').value = '';
+    document.getElementById('formTitle').innerText = '🎵 新增應援歌曲 / 影片';
+    document.getElementById('submitBtn').innerText = '新增並儲存';
+    document.getElementById('cancelEditBtn').style.display = 'none';
+  }
+
+  document.getElementById('songForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const editId = document.getElementById('editSongId').value;
+    const rawUrl = document.getElementById('videoUrl').value;
+    const embedUrl = formatYoutubeUrl(rawUrl);
+
+    let songs = getSongs();
+
+    if (editId) {
+      songs = songs.map(song => {
+        if (song.id === editId) {
+          return {
+            ...song,
+            title: document.getElementById('title').value.trim(),
+            team: document.getElementById('team').value,
+            player: document.getElementById('player').value.trim(),
+            videoUrl: embedUrl
+          };
+        }
+        return song;
       });
-
-      renderGrid(filtered);
-      updateStatus(filtered.length);
+      alert('✅ 修改已儲存！');
+    } else {
+      const newSong = {
+        id: Date.now().toString(),
+        title: document.getElementById('title').value.trim(),
+        team: document.getElementById('team').value,
+        player: document.getElementById('player').value.trim(),
+        videoUrl: embedUrl
+      };
+      songs.unshift(newSong);
+      alert('🎉 新增成功！');
     }
 
-    // 渲染卡片
-    function renderGrid(songs) {
-      const grid = document.getElementById('songGrid');
+    saveSongs(songs);
+    cancelEdit();
+  });
 
-      if (songs.length === 0) {
-        grid.innerHTML = `
-          <div class="empty-container">
-            <p>查無符合條件的應援曲 ⚾</p>
-          </div>
-        `;
-        return;
+  function deleteSong(id) {
+    if (confirm('確定要刪除這首歌曲嗎？')) {
+      const songs = getSongs().filter(s => s.id !== id);
+      saveSongs(songs);
+      if (document.getElementById('editSongId').value === id) {
+        cancelEdit();
       }
-
-      grid.innerHTML = songs.map(song => {
-        const teamClass = teamStyleMap[song.team] || 'team-default';
-        return `
-          <div class="song-card">
-            <div class="video-frame">
-              <iframe 
-                src="${song.videoUrl}" 
-                title="${song.title}" 
-                loading="lazy"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowfullscreen>
-              </iframe>
-            </div>
-            <div class="card-info">
-              <span class="team-badge ${teamClass}">${song.team}</span>
-              <h3 class="song-name">${song.title}</h3>
-              <p class="target-name">👤 ${song.player || '全隊通用'}</p>
-            </div>
-          </div>
-        `;
-      }).join('');
     }
+  }
 
-    function updateStatus(count) {
-      const resultEl = document.getElementById('resultCount');
-      resultEl.innerText = `顯示 ${count} 首應援曲（總共 ${allSongs.length} 首）`;
+  function exportJSON() {
+    const songs = getSongs();
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(songs, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", "songs.json");
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  }
+
+  function resetDefault() {
+    if (confirm('確定要重設為預設資料嗎？這將覆蓋現有新增的內容。')) {
+      saveSongs(DEFAULT_SONGS);
+      cancelEdit();
     }
+  }
 
-    // 事件監聽：搜尋框輸入
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      currentSearch = e.target.value;
-      applyFilterAndRender();
-    });
+  document.addEventListener('DOMContentLoaded', renderTable);
+</script>
 
-    // 事件監聽：球隊標籤切換
-    document.getElementById('filterTabs').addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab-btn')) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        e.target.classList.add('active');
-        currentFilter = e.target.dataset.team;
-        applyFilterAndRender();
-      }
-    });
-
-    document.addEventListener('DOMContentLoaded', initData);
-  </script>
 </body>
 </html>
