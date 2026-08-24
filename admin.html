@@ -10,13 +10,12 @@
     .container { max-width: 960px; margin: 0 auto; }
     .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
     h1, h2 { color: #1e293b; margin-top: 0; }
-    .form-group { margin-bottom: 16px; position: relative; }
+    .form-group { margin-bottom: 16px; }
     label { display: block; margin-bottom: 6px; font-weight: 600; color: #475569; }
     input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
     .hint-text { font-size: 13px; color: #64748b; margin-top: 4px; }
     .loading-badge { display: none; font-size: 12px; color: #2563eb; font-weight: 600; margin-left: 8px; }
-    
-    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.2s; }
+    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
     .btn:hover { background: #1d4ed8; }
     .btn:disabled { background: #94a3b8; cursor: not-allowed; }
     .btn-secondary { background: #64748b; }
@@ -25,12 +24,10 @@
     .btn-warning:hover { background: #d97706; }
     .btn-warning.active { background: #b45309; outline: 2px solid #f59e0b; }
     .nav-link { display: inline-block; margin-bottom: 16px; color: #2563eb; text-decoration: none; font-weight: 600; }
-    
     .action-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
     .filter-panel { display: flex; flex-wrap: wrap; gap: 12px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e2e8f0; align-items: center; }
     .filter-panel input, .filter-panel select { width: auto; min-width: 180px; flex: 1; }
     .filter-status { font-size: 14px; color: #64748b; margin-bottom: 12px; display: flex; justify-content: space-between; }
-
     table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 14px; }
     th { background: #f8fafc; color: #475569; }
@@ -44,7 +41,7 @@
   <a href="index.html" class="nav-link">← 返回前台首頁</a>
   
   <div class="card">
-    <h2 id="formTitle">🎵 上傳應援歌曲 / 影片至 Google 雲端</h2>
+    <h2>🎵 上傳應援歌曲 / 影片至 Google 雲端</h2>
     <form id="songForm">
       <div class="form-group">
         <label for="videoUrl">
@@ -121,208 +118,148 @@
 </div>
 
 <script>
-  // 你的 Google Apps Script 部署網址
-  const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbz72_rmHSwZwsq3r7Y1EL3jGlptkiQ9s5rWKTva8HOIw_R_NjN-6iCrJskD3msCnOSc/exec";
-  
-  let cloudSongs = [];
-  let onlyShowDuplicates = false;
+  (function() {
+    const API_ENDPOINT = "https://script.google.com/macros/s/AKfycbz72_rmHSwZwsq3r7Y1EL3jGlptkiQ9s5rWKTva8HOIw_R_NjN-6iCrJskD3msCnOSc/exec";
+    let songsData = [];
+    let showDupOnly = false;
 
-  function formatYoutubeUrl(url) {
-    if (!url) return '';
-    const trimmed = url.trim();
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = trimmed.match(regExp);
-    return (match && match[2].length === 11)
-      ? `https://www.youtube.com/embed/${match[2]}`
-      : trimmed;
-  }
+    function formatYoutubeUrl(url) {
+      if (!url) return '';
+      const trimmed = url.trim();
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = trimmed.match(regExp);
+      return (match && match[2].length === 11)
+        ? `https://www.youtube.com/embed/${match[2]}`
+        : trimmed;
+    }
 
-  async function autoFetchVideoInfo(url) {
-    const trimmed = url.trim();
-    if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
+    async function autoFetchVideoInfo(url) {
+      const trimmed = url.trim();
+      if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
 
-    const loadingBadge = document.getElementById('fetchLoading');
-    if (loadingBadge) loadingBadge.style.display = 'inline';
+      const badge = document.getElementById('fetchLoading');
+      if (badge) badge.style.display = 'inline';
 
-    try {
-      const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
-      const data = await res.json();
+      try {
+        const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
+        const data = await res.json();
+        if (data && data.title) {
+          const titleInput = document.getElementById('title');
+          if (titleInput && !titleInput.value) titleInput.value = data.title;
 
-      if (data && data.title) {
-        const fullTitle = data.title;
-        const titleInput = document.getElementById('title');
-        if (titleInput && !titleInput.value) titleInput.value = fullTitle;
+          const teamSelect = document.getElementById('team');
+          if (teamSelect) {
+            if (data.title.includes('兄弟') || data.title.includes('中信')) teamSelect.value = '中信兄弟';
+            else if (data.title.includes('統一') || data.title.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
+            else if (data.title.includes('桃猿') || data.title.includes('樂天')) teamSelect.value = '樂天桃猿';
+            else if (data.title.includes('味全') || data.title.includes('龍')) teamSelect.value = '味全龍';
+            else if (data.title.includes('富邦') || data.title.includes('悍將')) teamSelect.value = '富邦悍將';
+            else if (data.title.includes('台鋼') || data.title.includes('雄鷹')) teamSelect.value = '台鋼雄鷹';
+          }
 
-        const teamSelect = document.getElementById('team');
-        if (teamSelect) {
-          if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
-          else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
-          else if (fullTitle.includes('桃猿') || fullTitle.includes('樂天') || fullTitle.includes('Rakuten')) teamSelect.value = '樂天桃猿';
-          else if (fullTitle.includes('味全') || fullTitle.includes('龍')) teamSelect.value = '味全龍';
-          else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
-          else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
-        }
-
-        const playerInput = document.getElementById('player');
-        if (playerInput && !playerInput.value) {
-          const bracketMatch = fullTitle.match(/[【\[]([^】\]]+)[】\]]/);
-          if (bracketMatch) {
-            playerInput.value = bracketMatch[1].trim();
-          } else {
-            const keywordMatch = fullTitle.match(/([^\s]+)\s*(個人應援曲|應援曲|嗆司曲|加油歌)/);
-            if (keywordMatch) {
-              playerInput.value = keywordMatch[1].replace(/中職|CPBL|202[0-9]|年度/g, '').trim();
-            }
+          const playerInput = document.getElementById('player');
+          if (playerInput && !playerInput.value) {
+            const match = data.title.match(/[【\[]([^】\]]+)[】\]]/);
+            if (match) playerInput.value = match[1].trim();
           }
         }
+      } catch (e) {
+        console.warn('解析影片失敗:', e);
+      } finally {
+        if (badge) badge.style.display = 'none';
       }
-    } catch (err) {
-      console.warn('自動解析標題失敗:', err);
-    } finally {
-      if (loadingBadge) loadingBadge.style.display = 'none';
     }
-  }
 
-  const videoInput = document.getElementById('videoUrl');
-  if (videoInput) {
-    videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
-    videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
-  }
+    const videoInput = document.getElementById('videoUrl');
+    if (videoInput) {
+      videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
+      videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
+    }
 
-  // 從 Google 試算表載入歌曲清單（加強版）
-  async function fetchCloudSongs() {
-    const statsEl = document.getElementById('filterStats');
-    if (statsEl) statsEl.innerText = "⏳ 正在從 Google 雲端載入清單...";
-    
-    try {
-      const res = await fetch(GOOGLE_API_URL);
-      const data = await res.json();
-
-      if (Array.isArray(data)) {
-        // 確保每筆資料都有 id 屬性，避免渲染中斷
-        cloudSongs = data.map((item, index) => ({
-          id: item.id || `cloud_${index}`,
-          title: item.title || '未命名歌曲',
-          team: item.team || '未指定',
-          player: item.player || '',
-          videoUrl: item.videoUrl || ''
-        }));
-        renderTable();
-      } else {
-        throw new Error("回傳格式非陣列");
+    window.fetchCloudSongs = async function() {
+      const stats = document.getElementById('filterStats');
+      if (stats) stats.innerText = "⏳ 正在從 Google 雲端載入清單...";
+      try {
+        const res = await fetch(API_ENDPOINT);
+        const data = await res.json();
+        songsData = Array.isArray(data) ? data : [];
+        window.renderTable();
+      } catch (err) {
+        console.error("後台載入失敗:", err);
+        if (stats) stats.innerText = "❌ 無法取得雲端清單，請按 F12 查看主控台。";
       }
-    } catch (err) {
-      console.error("後台載入雲端失敗:", err);
-      if (statsEl) statsEl.innerText = "❌ 無法取得雲端清單，請按 F12 查看主控台報錯。";
-    }
-  }
+    };
 
-  function findDuplicates(songs) {
-    const titleMap = {};
-    const urlMap = {};
-    const duplicateIds = new Set();
+    window.toggleDuplicateFilter = function() {
+      showDupOnly = !showDupOnly;
+      const btn = document.getElementById('dupFilterBtn');
+      if (btn) {
+        btn.classList.toggle('active', showDupOnly);
+        btn.innerText = showDupOnly ? '顯示全部項目' : '⚠️ 僅顯示重複項目';
+      }
+      window.renderTable();
+    };
 
-    songs.forEach(song => {
-      const cleanTitle = (song.title || '').trim().toLowerCase();
-      const cleanUrl = (song.videoUrl || '').trim().toLowerCase();
+    window.renderTable = function() {
+      const search = (document.getElementById('adminSearch')?.value || '').toLowerCase().trim();
+      const team = document.getElementById('adminTeamFilter')?.value || 'ALL';
 
-      if (cleanTitle) {
-        if (titleMap[cleanTitle]) {
-          duplicateIds.add(song.id);
-          duplicateIds.add(titleMap[cleanTitle]);
-        } else {
-          titleMap[cleanTitle] = song.id;
+      const titleMap = {};
+      const urlMap = {};
+      const dupSet = new Set();
+
+      songsData.forEach((s, idx) => {
+        const t = (s.title || '').trim().toLowerCase();
+        const u = (s.videoUrl || '').trim().toLowerCase();
+        const id = s.id || `row_${idx}`;
+        s._tempId = id;
+
+        if (t) {
+          if (titleMap[t]) { dupSet.add(id); dupSet.add(titleMap[t]); }
+          else { titleMap[t] = id; }
         }
-      }
-
-      if (cleanUrl) {
-        if (urlMap[cleanUrl]) {
-          duplicateIds.add(song.id);
-          duplicateIds.add(urlMap[cleanUrl]);
-        } else {
-          urlMap[cleanUrl] = song.id;
+        if (u) {
+          if (urlMap[u]) { dupSet.add(id); dupSet.add(urlMap[u]); }
+          else { urlMap[u] = id; }
         }
+      });
+
+      const filtered = songsData.filter(s => {
+        const matchTeam = (team === 'ALL') || (s.team === team);
+        const matchSearch = !search || (s.title && s.title.toLowerCase().includes(search)) || (s.player && s.player.toLowerCase().includes(search));
+        const matchDup = !showDupOnly || dupSet.has(s._tempId);
+        return matchTeam && matchSearch && matchDup;
+      });
+
+      const stats = document.getElementById('filterStats');
+      if (stats) stats.innerText = `顯示 ${filtered.length} / 共 ${songsData.length} 首應援曲 (重複項目: ${dupSet.size} 筆)`;
+
+      const tbody = document.getElementById('songTableBody');
+      if (!tbody) return;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
+        return;
       }
-    });
 
-    return duplicateIds;
-  }
+      tbody.innerHTML = filtered.map(s => {
+        const isDup = dupSet.has(s._tempId);
+        return `
+          <tr class="${isDup ? 'duplicate-row' : ''}">
+            <td><strong>${s.title}</strong>${isDup ? '<span class="dup-tag">可能重複</span>' : ''}</td>
+            <td>${s.team}</td>
+            <td>${s.player || '-'}</td>
+            <td>${s.videoUrl ? `<a href="${s.videoUrl}" target="_blank" style="color:#2563eb;font-weight:600;">▶ 觀看影片</a>` : '<span style="color:#94a3b8;">無連結</span>'}</td>
+          </tr>
+        `;
+      }).join('');
+    };
 
-  function toggleDuplicateFilter() {
-    onlyShowDuplicates = !onlyShowDuplicates;
-    const btn = document.getElementById('dupFilterBtn');
-    if (btn) {
-      if (onlyShowDuplicates) {
-        btn.classList.add('active');
-        btn.innerText = '顯示全部項目';
-      } else {
-        btn.classList.remove('active');
-        btn.innerText = '⚠️ 僅顯示重複項目';
-      }
-    }
-    renderTable();
-  }
-
-  function renderTable() {
-    const duplicateIds = findDuplicates(cloudSongs);
-    const searchInput = document.getElementById('adminSearch');
-    const teamSelect = document.getElementById('adminTeamFilter');
-
-    const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
-    const team = teamSelect ? teamSelect.value : 'ALL';
-
-    let filtered = cloudSongs.filter(song => {
-      const matchTeam = (team === 'ALL') || (song.team === team);
-      const matchSearch = !search || 
-        (song.title && song.title.toLowerCase().includes(search)) || 
-        (song.player && song.player.toLowerCase().includes(search));
-      const matchDup = !onlyShowDuplicates || duplicateIds.has(song.id);
-
-      return matchTeam && matchSearch && matchDup;
-    });
-
-    const statsEl = document.getElementById('filterStats');
-    if (statsEl) {
-      statsEl.innerText = `顯示 ${filtered.length} / 共 ${cloudSongs.length} 首雲端應援曲 (重複項目: ${duplicateIds.size} 筆)`;
-    }
-
-    const tbody = document.getElementById('songTableBody');
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = filtered.map(song => {
-      const isDup = duplicateIds.has(song.id);
-      return `
-        <tr class="${isDup ? 'duplicate-row' : ''}">
-          <td>
-            <strong>${song.title}</strong>
-            ${isDup ? '<span class="dup-tag">可能重複</span>' : ''}
-          </td>
-          <td>${song.team}</td>
-          <td>${song.player || '-'}</td>
-          <td>
-            ${song.videoUrl ? `<a href="${song.videoUrl}" target="_blank" style="color:#2563eb;font-weight:600;">▶ 觀看影片</a>` : '<span style="color:#94a3b8;">無連結</span>'}
-          </td>
-        </tr>
-      `;
-    }).join('');
-  }
-
-  // 表單上傳
-  const songForm = document.getElementById('songForm');
-  if (songForm) {
-    songForm.addEventListener('submit', async function(e) {
+    document.getElementById('songForm').addEventListener('submit', async function(e) {
       e.preventDefault();
-      
       const submitBtn = document.getElementById('submitBtn');
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerText = "⏳ 上傳中，請稍候...";
-      }
+      submitBtn.disabled = true;
+      submitBtn.innerText = "⏳ 上傳中，請稍候...";
 
       const newSong = {
         title: document.getElementById('title').value.trim(),
@@ -332,29 +269,26 @@
       };
 
       try {
-        await fetch(GOOGLE_API_URL, {
+        await fetch(API_ENDPOINT, {
           method: 'POST',
           mode: 'no-cors',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newSong)
         });
-
         alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
         this.reset();
-        setTimeout(fetchCloudSongs, 1500);
+        setTimeout(window.fetchCloudSongs, 1500);
       } catch (err) {
         alert('❌ 上傳失敗，請檢查網路連線。');
         console.error(err);
       } finally {
-        if (submitBtn) {
-          submitBtn.disabled = false;
-          submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
-        }
+        submitBtn.disabled = false;
+        submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
       }
     });
-  }
 
-  document.addEventListener('DOMContentLoaded', fetchCloudSongs);
+    window.fetchCloudSongs();
+  })();
 </script>
 
 </body>
