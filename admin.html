@@ -18,18 +18,14 @@
     
     .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.2s; }
     .btn:hover { background: #1d4ed8; }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
     .btn-secondary { background: #64748b; }
     .btn-secondary:hover { background: #475569; }
     .btn-warning { background: #f59e0b; color: white; }
     .btn-warning:hover { background: #d97706; }
     .btn-warning.active { background: #b45309; outline: 2px solid #f59e0b; }
-    .btn-edit { background: #f59e0b; padding: 6px 12px; font-size: 13px; margin-right: 6px; }
-    .btn-edit:hover { background: #d97706; }
-    .btn-danger { background: #ef4444; padding: 6px 12px; font-size: 13px; }
-    .btn-danger:hover { background: #dc2626; }
     .nav-link { display: inline-block; margin-bottom: 16px; color: #2563eb; text-decoration: none; font-weight: 600; }
     
-    /* 篩選與管理工具列 */
     .action-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
     .filter-panel { display: flex; flex-wrap: wrap; gap: 12px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e2e8f0; align-items: center; }
     .filter-panel input, .filter-panel select { width: auto; min-width: 180px; flex: 1; }
@@ -48,10 +44,8 @@
   <a href="index.html" class="nav-link">← 返回前台首頁</a>
   
   <div class="card">
-    <h2 id="formTitle">🎵 新增應援歌曲 / 影片</h2>
+    <h2 id="formTitle">🎵 上傳應援歌曲 / 影片至 Google 雲端</h2>
     <form id="songForm">
-      <input type="hidden" id="editSongId" value="">
-
       <div class="form-group">
         <label for="videoUrl">
           YouTube 影片網址
@@ -83,21 +77,18 @@
         <input type="text" id="player" placeholder="例如：王威晨 / 峮峮">
       </div>
 
-      <button type="submit" id="submitBtn" class="btn">新增並儲存</button>
-      <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;" onclick="cancelEdit()">取消編輯</button>
+      <button type="submit" id="submitBtn" class="btn">🚀 上傳至 Google 雲端資料庫</button>
     </form>
   </div>
 
   <div class="card">
-    <h2>📋 現有歌曲清單管理</h2>
+    <h2>📋 雲端現有歌曲清單</h2>
     
     <div class="action-bar">
-      <button class="btn btn-secondary" onclick="exportJSON()">📥 匯出 songs.json (準備發布 GitHub)</button>
+      <button class="btn btn-secondary" onclick="fetchCloudSongs()">🔄 重新整理雲端資料</button>
       <button class="btn btn-warning" id="dupFilterBtn" onclick="toggleDuplicateFilter()">⚠️ 僅顯示重複項目</button>
-      <!-- <button class="btn btn-secondary" onclick="resetDefault()">🔄 重設為預設清單</button> -->
     </div>
 
-    <!-- 篩選與搜尋工具列 -->
     <div class="filter-panel">
       <input type="text" id="adminSearch" placeholder="🔍 搜尋曲名、球員..." oninput="renderTable()">
       <select id="adminTeamFilter" onchange="renderTable()">
@@ -112,7 +103,7 @@
     </div>
 
     <div class="filter-status">
-      <span id="filterStats">正在計算歌曲數量...</span>
+      <span id="filterStats">正在連線至 Google 試算表...</span>
     </div>
     
     <table>
@@ -122,7 +113,6 @@
           <th>球隊</th>
           <th>球員/對象</th>
           <th>影片連結</th>
-          <th style="width: 140px;">操作</th>
         </tr>
       </thead>
       <tbody id="songTableBody"></tbody>
@@ -131,18 +121,11 @@
 </div>
 
 <script>
-  const STORAGE_KEY = 'cpbl_cheer_songs';
+  // 你的 Google Apps Script 部署網址
+  const GOOGLE_API_URL = "https://script.google.com/macros/s/AKfycbz72_rmHSwZwsq3r7Y1EL3jGlptkiQ9s5rWKTva8HOIw_R_NjN-6iCrJskD3msCnOSc/exec";
+  
+  let cloudSongs = [];
   let onlyShowDuplicates = false;
-
-  const DEFAULT_SONGS = [
-    {
-      id: "1",
-      title: "兄弟精神",
-      team: "中信兄弟",
-      player: "全隊",
-      videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
-    }
-  ];
 
   function formatYoutubeUrl(url) {
     if (!url) return '';
@@ -202,25 +185,27 @@
   videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
   videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
 
-  function getSongs() {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : DEFAULT_SONGS;
+  // 從 Google 試算表載入歌曲清單
+  async function fetchCloudSongs() {
+    document.getElementById('filterStats').innerText = "⏳ 正在從 Google 雲端載入清單...";
+    try {
+      const res = await fetch(GOOGLE_API_URL);
+      cloudSongs = await res.json();
+      renderTable();
+    } catch (err) {
+      console.error(err);
+      document.getElementById('filterStats').innerText = "❌ 無法取得雲端清單，請確認網路連線。";
+    }
   }
 
-  function saveSongs(songs) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(songs));
-    renderTable();
-  }
-
-  // 標記並篩選重複項目（判斷：曲名相同、或影片網址相同）
   function findDuplicates(songs) {
     const titleMap = {};
     const urlMap = {};
     const duplicateIds = new Set();
 
     songs.forEach(song => {
-      const cleanTitle = song.title.trim().toLowerCase();
-      const cleanUrl = song.videoUrl.trim().toLowerCase();
+      const cleanTitle = (song.title || '').trim().toLowerCase();
+      const cleanUrl = (song.videoUrl || '').trim().toLowerCase();
 
       if (titleMap[cleanTitle]) {
         duplicateIds.add(song.id);
@@ -254,15 +239,14 @@
   }
 
   function renderTable() {
-    const songs = getSongs();
-    const duplicateIds = findDuplicates(songs);
+    const duplicateIds = findDuplicates(cloudSongs);
     const search = document.getElementById('adminSearch').value.toLowerCase().trim();
     const team = document.getElementById('adminTeamFilter').value;
 
-    let filtered = songs.filter(song => {
+    let filtered = cloudSongs.filter(song => {
       const matchTeam = (team === 'ALL') || (song.team === team);
       const matchSearch = !search || 
-        song.title.toLowerCase().includes(search) || 
+        (song.title && song.title.toLowerCase().includes(search)) || 
         (song.player && song.player.toLowerCase().includes(search));
       const matchDup = !onlyShowDuplicates || duplicateIds.has(song.id);
 
@@ -270,11 +254,11 @@
     });
 
     document.getElementById('filterStats').innerText = 
-      `顯示 ${filtered.length} / 共 ${songs.length} 首應援曲 (重複項目: ${duplicateIds.size} 筆)`;
+      `顯示 ${filtered.length} / 共 ${cloudSongs.length} 首雲端應援曲 (重複項目: ${duplicateIds.size} 筆)`;
 
     const tbody = document.getElementById('songTableBody');
     if (filtered.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
       return;
     }
 
@@ -289,109 +273,48 @@
           <td>${song.team}</td>
           <td>${song.player || '-'}</td>
           <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
-          <td>
-            <button class="btn btn-edit" onclick="startEdit('${song.id}')">編輯</button>
-            <button class="btn btn-danger" onclick="deleteSong('${song.id}')">刪除</button>
-          </td>
         </tr>
       `;
     }).join('');
   }
 
-  function startEdit(id) {
-    const songs = getSongs();
-    const song = songs.find(s => s.id === id);
-    if (!song) return;
-
-    document.getElementById('editSongId').value = song.id;
-    document.getElementById('title').value = song.title;
-    document.getElementById('team').value = song.team;
-    document.getElementById('player').value = song.player || '';
-    document.getElementById('videoUrl').value = song.videoUrl;
-
-    document.getElementById('formTitle').innerText = '✏️ 編輯應援曲資料';
-    document.getElementById('submitBtn').innerText = '儲存修改';
-    document.getElementById('cancelEditBtn').style.display = 'inline-block';
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  function cancelEdit() {
-    document.getElementById('songForm').reset();
-    document.getElementById('editSongId').value = '';
-    document.getElementById('formTitle').innerText = '🎵 新增應援歌曲 / 影片';
-    document.getElementById('submitBtn').innerText = '新增並儲存';
-    document.getElementById('cancelEditBtn').style.display = 'none';
-  }
-
-  document.getElementById('songForm').addEventListener('submit', function(e) {
+  // 送出表單 -> 寫入 Google 試算表
+  document.getElementById('songForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     
-    const editId = document.getElementById('editSongId').value;
-    const rawUrl = document.getElementById('videoUrl').value;
-    const embedUrl = formatYoutubeUrl(rawUrl);
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "⏳ 上傳中，請稍候...";
 
-    let songs = getSongs();
+    const newSong = {
+      title: document.getElementById('title').value.trim(),
+      team: document.getElementById('team').value,
+      player: document.getElementById('player').value.trim(),
+      videoUrl: formatYoutubeUrl(document.getElementById('videoUrl').value)
+    };
 
-    if (editId) {
-      songs = songs.map(song => {
-        if (song.id === editId) {
-          return {
-            ...song,
-            title: document.getElementById('title').value.trim(),
-            team: document.getElementById('team').value,
-            player: document.getElementById('player').value.trim(),
-            videoUrl: embedUrl
-          };
-        }
-        return song;
+    try {
+      await fetch(GOOGLE_API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSong)
       });
-      alert('✅ 修改已儲存！');
-    } else {
-      const newSong = {
-        id: Date.now().toString(),
-        title: document.getElementById('title').value.trim(),
-        team: document.getElementById('team').value,
-        player: document.getElementById('player').value.trim(),
-        videoUrl: embedUrl
-      };
-      songs.unshift(newSong);
-      alert('🎉 新增成功！');
-    }
 
-    saveSongs(songs);
-    cancelEdit();
+      alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
+      this.reset();
+      // 等待 1.5 秒讓 Google 寫入完成後重新載入列表
+      setTimeout(fetchCloudSongs, 1500);
+    } catch (err) {
+      alert('❌ 上傳失敗，請檢查網路連線。');
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
+    }
   });
 
-  function deleteSong(id) {
-    if (confirm('確定要刪除這首歌曲嗎？')) {
-      const songs = getSongs().filter(s => s.id !== id);
-      saveSongs(songs);
-      if (document.getElementById('editSongId').value === id) {
-        cancelEdit();
-      }
-    }
-  }
-
-  function exportJSON() {
-    const songs = getSongs();
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(songs, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", "songs.json");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-  }
-
-  function resetDefault() {
-    if (confirm('確定要重設為預設資料嗎？這將覆蓋現有新增的內容。')) {
-      saveSongs(DEFAULT_SONGS);
-      cancelEdit();
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', renderTable);
+  document.addEventListener('DOMContentLoaded', fetchCloudSongs);
 </script>
 
 </body>
