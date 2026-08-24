@@ -255,37 +255,40 @@
       }).join('');
     };
 
-    document.getElementById('songForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerText = "⏳ 上傳中，請稍候...";
+ document.getElementById('songForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true;
+  submitBtn.innerText = "⏳ 上傳中，請稍候...";
 
-      const newSong = {
-        title: document.getElementById('title').value.trim(),
-        team: document.getElementById('team').value,
-        player: document.getElementById('player').value.trim(),
-        videoUrl: formatYoutubeUrl(document.getElementById('videoUrl').value)
-      };
+  // 將資料轉為標準表單格式發送
+  const formData = new URLSearchParams();
+  formData.append('title', document.getElementById('title').value.trim());
+  formData.append('team', document.getElementById('team').value);
+  formData.append('player', document.getElementById('player').value.trim());
+  formData.append('videoUrl', formatYoutubeUrl(document.getElementById('videoUrl').value));
 
-      try {
-        await fetch(API_ENDPOINT, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newSong)
-        });
-        alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
-        this.reset();
-        setTimeout(window.fetchCloudSongs, 1500);
-      } catch (err) {
-        alert('❌ 上傳失敗，請檢查網路連線。');
-        console.error(err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
-      }
+  try {
+    await fetch(API_ENDPOINT, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: formData.toString()
     });
+
+    alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
+    this.reset();
+    setTimeout(window.fetchCloudSongs, 2000);
+  } catch (err) {
+    alert('❌ 上傳失敗，請檢查網路連線。');
+    console.error(err);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
+  }
+});
 
     window.fetchCloudSongs();
   })();
