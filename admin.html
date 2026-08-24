@@ -142,7 +142,7 @@
     if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
 
     const loadingBadge = document.getElementById('fetchLoading');
-    loadingBadge.style.display = 'inline';
+    if (loadingBadge) loadingBadge.style.display = 'inline';
 
     try {
       const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
@@ -151,18 +151,20 @@
       if (data && data.title) {
         const fullTitle = data.title;
         const titleInput = document.getElementById('title');
-        if (!titleInput.value) titleInput.value = fullTitle;
+        if (titleInput && !titleInput.value) titleInput.value = fullTitle;
 
         const teamSelect = document.getElementById('team');
-        if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
-        else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
-        else if (fullTitle.includes('桃猿') || fullTitle.includes('樂天') || fullTitle.includes('Rakuten')) teamSelect.value = '樂天桃猿';
-        else if (fullTitle.includes('味全') || fullTitle.includes('龍')) teamSelect.value = '味全龍';
-        else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
-        else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
+        if (teamSelect) {
+          if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
+          else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
+          else if (fullTitle.includes('桃猿') || fullTitle.includes('樂天') || fullTitle.includes('Rakuten')) teamSelect.value = '樂天桃猿';
+          else if (fullTitle.includes('味全') || fullTitle.includes('龍')) teamSelect.value = '味全龍';
+          else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
+          else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
+        }
 
         const playerInput = document.getElementById('player');
-        if (!playerInput.value) {
+        if (playerInput && !playerInput.value) {
           const bracketMatch = fullTitle.match(/[【\[]([^】\]]+)[】\]]/);
           if (bracketMatch) {
             playerInput.value = bracketMatch[1].trim();
@@ -177,24 +179,41 @@
     } catch (err) {
       console.warn('自動解析標題失敗:', err);
     } finally {
-      loadingBadge.style.display = 'none';
+      if (loadingBadge) loadingBadge.style.display = 'none';
     }
   }
 
   const videoInput = document.getElementById('videoUrl');
-  videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
-  videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
+  if (videoInput) {
+    videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
+    videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
+  }
 
-  // 從 Google 試算表載入歌曲清單
+  // 從 Google 試算表載入歌曲清單（加強版）
   async function fetchCloudSongs() {
-    document.getElementById('filterStats').innerText = "⏳ 正在從 Google 雲端載入清單...";
+    const statsEl = document.getElementById('filterStats');
+    if (statsEl) statsEl.innerText = "⏳ 正在從 Google 雲端載入清單...";
+    
     try {
       const res = await fetch(GOOGLE_API_URL);
-      cloudSongs = await res.json();
-      renderTable();
+      const data = await res.json();
+
+      if (Array.isArray(data)) {
+        // 確保每筆資料都有 id 屬性，避免渲染中斷
+        cloudSongs = data.map((item, index) => ({
+          id: item.id || `cloud_${index}`,
+          title: item.title || '未命名歌曲',
+          team: item.team || '未指定',
+          player: item.player || '',
+          videoUrl: item.videoUrl || ''
+        }));
+        renderTable();
+      } else {
+        throw new Error("回傳格式非陣列");
+      }
     } catch (err) {
-      console.error(err);
-      document.getElementById('filterStats').innerText = "❌ 無法取得雲端清單，請確認網路連線。";
+      console.error("後台載入雲端失敗:", err);
+      if (statsEl) statsEl.innerText = "❌ 無法取得雲端清單，請按 F12 查看主控台報錯。";
     }
   }
 
@@ -207,18 +226,22 @@
       const cleanTitle = (song.title || '').trim().toLowerCase();
       const cleanUrl = (song.videoUrl || '').trim().toLowerCase();
 
-      if (titleMap[cleanTitle]) {
-        duplicateIds.add(song.id);
-        duplicateIds.add(titleMap[cleanTitle]);
-      } else {
-        titleMap[cleanTitle] = song.id;
+      if (cleanTitle) {
+        if (titleMap[cleanTitle]) {
+          duplicateIds.add(song.id);
+          duplicateIds.add(titleMap[cleanTitle]);
+        } else {
+          titleMap[cleanTitle] = song.id;
+        }
       }
 
-      if (urlMap[cleanUrl]) {
-        duplicateIds.add(song.id);
-        duplicateIds.add(urlMap[cleanUrl]);
-      } else {
-        urlMap[cleanUrl] = song.id;
+      if (cleanUrl) {
+        if (urlMap[cleanUrl]) {
+          duplicateIds.add(song.id);
+          duplicateIds.add(urlMap[cleanUrl]);
+        } else {
+          urlMap[cleanUrl] = song.id;
+        }
       }
     });
 
@@ -228,20 +251,25 @@
   function toggleDuplicateFilter() {
     onlyShowDuplicates = !onlyShowDuplicates;
     const btn = document.getElementById('dupFilterBtn');
-    if (onlyShowDuplicates) {
-      btn.classList.add('active');
-      btn.innerText = '顯示全部項目';
-    } else {
-      btn.classList.remove('active');
-      btn.innerText = '⚠️ 僅顯示重複項目';
+    if (btn) {
+      if (onlyShowDuplicates) {
+        btn.classList.add('active');
+        btn.innerText = '顯示全部項目';
+      } else {
+        btn.classList.remove('active');
+        btn.innerText = '⚠️ 僅顯示重複項目';
+      }
     }
     renderTable();
   }
 
   function renderTable() {
     const duplicateIds = findDuplicates(cloudSongs);
-    const search = document.getElementById('adminSearch').value.toLowerCase().trim();
-    const team = document.getElementById('adminTeamFilter').value;
+    const searchInput = document.getElementById('adminSearch');
+    const teamSelect = document.getElementById('adminTeamFilter');
+
+    const search = searchInput ? searchInput.value.toLowerCase().trim() : '';
+    const team = teamSelect ? teamSelect.value : 'ALL';
 
     let filtered = cloudSongs.filter(song => {
       const matchTeam = (team === 'ALL') || (song.team === team);
@@ -253,10 +281,14 @@
       return matchTeam && matchSearch && matchDup;
     });
 
-    document.getElementById('filterStats').innerText = 
-      `顯示 ${filtered.length} / 共 ${cloudSongs.length} 首雲端應援曲 (重複項目: ${duplicateIds.size} 筆)`;
+    const statsEl = document.getElementById('filterStats');
+    if (statsEl) {
+      statsEl.innerText = `顯示 ${filtered.length} / 共 ${cloudSongs.length} 首雲端應援曲 (重複項目: ${duplicateIds.size} 筆)`;
+    }
 
     const tbody = document.getElementById('songTableBody');
+    if (!tbody) return;
+
     if (filtered.length === 0) {
       tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
       return;
@@ -272,47 +304,55 @@
           </td>
           <td>${song.team}</td>
           <td>${song.player || '-'}</td>
-          <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
+          <td>
+            ${song.videoUrl ? `<a href="${song.videoUrl}" target="_blank" style="color:#2563eb;font-weight:600;">▶ 觀看影片</a>` : '<span style="color:#94a3b8;">無連結</span>'}
+          </td>
         </tr>
       `;
     }).join('');
   }
 
-  // 送出表單 -> 寫入 Google 試算表
-  document.getElementById('songForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-    submitBtn.innerText = "⏳ 上傳中，請稍候...";
+  // 表單上傳
+  const songForm = document.getElementById('songForm');
+  if (songForm) {
+    songForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "⏳ 上傳中，請稍候...";
+      }
 
-    const newSong = {
-      title: document.getElementById('title').value.trim(),
-      team: document.getElementById('team').value,
-      player: document.getElementById('player').value.trim(),
-      videoUrl: formatYoutubeUrl(document.getElementById('videoUrl').value)
-    };
+      const newSong = {
+        title: document.getElementById('title').value.trim(),
+        team: document.getElementById('team').value,
+        player: document.getElementById('player').value.trim(),
+        videoUrl: formatYoutubeUrl(document.getElementById('videoUrl').value)
+      };
 
-    try {
-      await fetch(GOOGLE_API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newSong)
-      });
+      try {
+        await fetch(GOOGLE_API_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newSong)
+        });
 
-      alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
-      this.reset();
-      // 等待 1.5 秒讓 Google 寫入完成後重新載入列表
-      setTimeout(fetchCloudSongs, 1500);
-    } catch (err) {
-      alert('❌ 上傳失敗，請檢查網路連線。');
-      console.error(err);
-    } finally {
-      submitBtn.disabled = false;
-      submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
-    }
-  });
+        alert('🎉 上傳成功！已即時寫入 Google 雲端試算表。');
+        this.reset();
+        setTimeout(fetchCloudSongs, 1500);
+      } catch (err) {
+        alert('❌ 上傳失敗，請檢查網路連線。');
+        console.error(err);
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "🚀 上傳至 Google 雲端資料庫";
+        }
+      }
+    });
+  }
 
   document.addEventListener('DOMContentLoaded', fetchCloudSongs);
 </script>
