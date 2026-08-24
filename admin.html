@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; margin: 0; padding: 20px; }
-    .container { max-width: 900px; margin: 0 auto; }
+    .container { max-width: 960px; margin: 0 auto; }
     .card { background: white; border-radius: 8px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px; }
     h1, h2 { color: #1e293b; margin-top: 0; }
     .form-group { margin-bottom: 16px; position: relative; }
@@ -15,19 +15,31 @@
     input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
     .hint-text { font-size: 13px; color: #64748b; margin-top: 4px; }
     .loading-badge { display: none; font-size: 12px; color: #2563eb; font-weight: 600; margin-left: 8px; }
-    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; }
+    
+    .btn { background: #2563eb; color: white; border: none; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.2s; }
     .btn:hover { background: #1d4ed8; }
-    .btn-secondary { background: #64748b; margin-left: 8px; }
+    .btn-secondary { background: #64748b; }
     .btn-secondary:hover { background: #475569; }
+    .btn-warning { background: #f59e0b; color: white; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-warning.active { background: #b45309; outline: 2px solid #f59e0b; }
     .btn-edit { background: #f59e0b; padding: 6px 12px; font-size: 13px; margin-right: 6px; }
     .btn-edit:hover { background: #d97706; }
     .btn-danger { background: #ef4444; padding: 6px 12px; font-size: 13px; }
     .btn-danger:hover { background: #dc2626; }
     .nav-link { display: inline-block; margin-bottom: 16px; color: #2563eb; text-decoration: none; font-weight: 600; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    
+    /* 篩選與管理工具列 */
+    .action-bar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .filter-panel { display: flex; flex-wrap: wrap; gap: 12px; background: #f8fafc; padding: 14px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #e2e8f0; align-items: center; }
+    .filter-panel input, .filter-panel select { width: auto; min-width: 180px; flex: 1; }
+    .filter-status { font-size: 14px; color: #64748b; margin-bottom: 12px; display: flex; justify-content: space-between; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 12px; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 14px; }
     th { background: #f8fafc; color: #475569; }
-    .action-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+    tr.duplicate-row { background-color: #fef2f2; }
+    .dup-tag { background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 6px; }
   </style>
 </head>
 <body>
@@ -40,7 +52,6 @@
     <form id="songForm">
       <input type="hidden" id="editSongId" value="">
 
-      <!-- 優先填入網址，以觸發自動讀取 -->
       <div class="form-group">
         <label for="videoUrl">
           YouTube 影片網址
@@ -78,10 +89,30 @@
   </div>
 
   <div class="card">
-    <h2>📋 現有歌曲清單</h2>
+    <h2>📋 現有歌曲清單管理</h2>
+    
     <div class="action-bar">
       <button class="btn btn-secondary" onclick="exportJSON()">📥 匯出 songs.json (準備發布 GitHub)</button>
+      <button class="btn btn-warning" id="dupFilterBtn" onclick="toggleDuplicateFilter()">⚠️ 僅顯示重複項目</button>
       <button class="btn btn-secondary" onclick="resetDefault()">🔄 重設為預設清單</button>
+    </div>
+
+    <!-- 篩選與搜尋工具列 -->
+    <div class="filter-panel">
+      <input type="text" id="adminSearch" placeholder="🔍 搜尋曲名、球員..." oninput="renderTable()">
+      <select id="adminTeamFilter" onchange="renderTable()">
+        <option value="ALL">全部球隊</option>
+        <option value="中信兄弟">中信兄弟</option>
+        <option value="統一7-ELEVEn獅">統一7-ELEVEn獅</option>
+        <option value="樂天桃猿">樂天桃猿</option>
+        <option value="味全龍">味全龍</option>
+        <option value="富邦悍將">富邦悍將</option>
+        <option value="台鋼雄鷹">台鋼雄鷹</option>
+      </select>
+    </div>
+
+    <div class="filter-status">
+      <span id="filterStats">正在計算歌曲數量...</span>
     </div>
     
     <table>
@@ -91,7 +122,7 @@
           <th>球隊</th>
           <th>球員/對象</th>
           <th>影片連結</th>
-          <th>操作</th>
+          <th style="width: 140px;">操作</th>
         </tr>
       </thead>
       <tbody id="songTableBody"></tbody>
@@ -101,6 +132,7 @@
 
 <script>
   const STORAGE_KEY = 'cpbl_cheer_songs';
+  let onlyShowDuplicates = false;
 
   const DEFAULT_SONGS = [
     {
@@ -112,7 +144,6 @@
     }
   ];
 
-  // 轉換為嵌入式網址
   function formatYoutubeUrl(url) {
     if (!url) return '';
     const trimmed = url.trim();
@@ -123,7 +154,6 @@
       : trimmed;
   }
 
-  // 自動擷取 YouTube 標題與分析球員/隊伍
   async function autoFetchVideoInfo(url) {
     const trimmed = url.trim();
     if (!trimmed.includes('youtube.com') && !trimmed.includes('youtu.be')) return;
@@ -132,20 +162,14 @@
     loadingBadge.style.display = 'inline';
 
     try {
-      // 透過 noembed 公開服務取得 JSON
       const res = await fetch(`https://noembed.com/embed?url=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
 
       if (data && data.title) {
         const fullTitle = data.title;
-        
-        // 1. 自動填入歌曲名稱
         const titleInput = document.getElementById('title');
-        if (!titleInput.value) {
-          titleInput.value = fullTitle;
-        }
+        if (!titleInput.value) titleInput.value = fullTitle;
 
-        // 2. 智慧比對球隊
         const teamSelect = document.getElementById('team');
         if (fullTitle.includes('兄弟') || fullTitle.includes('中信')) teamSelect.value = '中信兄弟';
         else if (fullTitle.includes('統一') || fullTitle.includes('獅')) teamSelect.value = '統一7-ELEVEn獅';
@@ -154,14 +178,12 @@
         else if (fullTitle.includes('富邦') || fullTitle.includes('悍將') || fullTitle.includes('Fubon')) teamSelect.value = '富邦悍將';
         else if (fullTitle.includes('台鋼') || fullTitle.includes('雄鷹') || fullTitle.includes('Hawks')) teamSelect.value = '台鋼雄鷹';
 
-        // 3. 智慧擷取球員/啦啦隊姓名 (偵測常見標題格式，例如【峮峮】、[王威晨]、陳傑憲應援曲)
         const playerInput = document.getElementById('player');
         if (!playerInput.value) {
           const bracketMatch = fullTitle.match(/[【\[]([^】\]]+)[】\]]/);
           if (bracketMatch) {
             playerInput.value = bracketMatch[1].trim();
           } else {
-            // 常見「OOO 應援曲 / 嗆司曲」格式比對
             const keywordMatch = fullTitle.match(/([^\s]+)\s*(個人應援曲|應援曲|嗆司曲|加油歌)/);
             if (keywordMatch) {
               playerInput.value = keywordMatch[1].replace(/中職|CPBL|202[0-9]|年度/g, '').trim();
@@ -170,20 +192,15 @@
         }
       }
     } catch (err) {
-      console.warn('自動解析 YouTube 標題失敗:', err);
+      console.warn('自動解析標題失敗:', err);
     } finally {
       loadingBadge.style.display = 'none';
     }
   }
 
-  // 監聽網址欄位的貼上與變更事件
   const videoInput = document.getElementById('videoUrl');
-  videoInput.addEventListener('paste', () => {
-    setTimeout(() => autoFetchVideoInfo(videoInput.value), 100);
-  });
-  videoInput.addEventListener('change', () => {
-    autoFetchVideoInfo(videoInput.value);
-  });
+  videoInput.addEventListener('paste', () => setTimeout(() => autoFetchVideoInfo(videoInput.value), 100));
+  videoInput.addEventListener('change', () => autoFetchVideoInfo(videoInput.value));
 
   function getSongs() {
     const data = localStorage.getItem(STORAGE_KEY);
@@ -195,26 +212,90 @@
     renderTable();
   }
 
+  // 標記並篩選重複項目（判斷：曲名相同、或影片網址相同）
+  function findDuplicates(songs) {
+    const titleMap = {};
+    const urlMap = {};
+    const duplicateIds = new Set();
+
+    songs.forEach(song => {
+      const cleanTitle = song.title.trim().toLowerCase();
+      const cleanUrl = song.videoUrl.trim().toLowerCase();
+
+      if (titleMap[cleanTitle]) {
+        duplicateIds.add(song.id);
+        duplicateIds.add(titleMap[cleanTitle]);
+      } else {
+        titleMap[cleanTitle] = song.id;
+      }
+
+      if (urlMap[cleanUrl]) {
+        duplicateIds.add(song.id);
+        duplicateIds.add(urlMap[cleanUrl]);
+      } else {
+        urlMap[cleanUrl] = song.id;
+      }
+    });
+
+    return duplicateIds;
+  }
+
+  function toggleDuplicateFilter() {
+    onlyShowDuplicates = !onlyShowDuplicates;
+    const btn = document.getElementById('dupFilterBtn');
+    if (onlyShowDuplicates) {
+      btn.classList.add('active');
+      btn.innerText = '顯示全部項目';
+    } else {
+      btn.classList.remove('active');
+      btn.innerText = '⚠️ 僅顯示重複項目';
+    }
+    renderTable();
+  }
+
   function renderTable() {
     const songs = getSongs();
+    const duplicateIds = findDuplicates(songs);
+    const search = document.getElementById('adminSearch').value.toLowerCase().trim();
+    const team = document.getElementById('adminTeamFilter').value;
+
+    let filtered = songs.filter(song => {
+      const matchTeam = (team === 'ALL') || (song.team === team);
+      const matchSearch = !search || 
+        song.title.toLowerCase().includes(search) || 
+        (song.player && song.player.toLowerCase().includes(search));
+      const matchDup = !onlyShowDuplicates || duplicateIds.has(song.id);
+
+      return matchTeam && matchSearch && matchDup;
+    });
+
+    document.getElementById('filterStats').innerText = 
+      `顯示 ${filtered.length} / 共 ${songs.length} 首應援曲 (重複項目: ${duplicateIds.size} 筆)`;
+
     const tbody = document.getElementById('songTableBody');
-    if (songs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;">目前沒有任何歌曲資料</td></tr>';
+    if (filtered.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:24px;">無符合條件的歌曲資料</td></tr>';
       return;
     }
 
-    tbody.innerHTML = songs.map(song => `
-      <tr>
-        <td><strong>${song.title}</strong></td>
-        <td>${song.team}</td>
-        <td>${song.player || '-'}</td>
-        <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
-        <td>
-          <button class="btn btn-edit" onclick="startEdit('${song.id}')">編輯</button>
-          <button class="btn btn-danger" onclick="deleteSong('${song.id}')">刪除</button>
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = filtered.map(song => {
+      const isDup = duplicateIds.has(song.id);
+      return `
+        <tr class="${isDup ? 'duplicate-row' : ''}">
+          <td>
+            <strong>${song.title}</strong>
+            ${isDup ? '<span class="dup-tag">可能重複</span>' : ''}
+          </td>
+          <td>${song.team}</td>
+          <td>${song.player || '-'}</td>
+          <td><a href="${song.videoUrl}" target="_blank" style="color:#2563eb;">預覽連結</a></td>
+          <td>
+            <button class="btn btn-edit" onclick="startEdit('${song.id}')">編輯</button>
+            <button class="btn btn-danger" onclick="deleteSong('${song.id}')">刪除</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
   }
 
   function startEdit(id) {
